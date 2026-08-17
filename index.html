@@ -1,1 +1,1471 @@
-.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Song → Aesthetic Generator</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* ==========================================================================
+           CSS VARIABLES & THEME
+           ========================================================================== */
+        :root {
+            --primary: #B8A1FF;
+            --secondary: #D9C7FF;
+            --glow: #E8DFFF;
+            
+            /* Liquid Mesh Background Colors */
+            --bg-base: #0A0710;
+            --bg-1: #382570;
+            --bg-2: #171336;
+            --bg-3: #5C4A9C;
+            
+            /* UI Colors */
+            --surface: rgba(255, 255, 255, 0.03);
+            --surface-hover: rgba(255, 255, 255, 0.06);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-light: rgba(255, 255, 255, 0.15);
+            --glass-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.15);
+            
+            --text-main: #FFFFFF;
+            --text-muted: rgba(255, 255, 255, 0.7);
+            --text-dark: rgba(255, 255, 255, 0.4);
+            
+            /* Sizing & Layout */
+            --radius-sm: 12px;
+            --radius-md: 24px;
+            --radius-lg: 32px;
+            --max-width: 1200px;
+            --nav-height: 70px;
+            
+            /* Transitions */
+            --trans-fast: 0.2s ease;
+            --trans-smooth: 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+
+        /* ==========================================================================
+           RESET & BASE
+           ========================================================================== */
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-base);
+            color: var(--text-main); 
+            overflow-x: hidden; 
+            min-height: 100vh;
+            transition: background-color 1.5s ease;
+            perspective: 1200px; 
+        }
+        body.shake { animation: thunder-shake 0.4s ease-out; }
+
+        h1, h2, h3, h4, .brand-font { font-family: 'Space Grotesk', sans-serif; font-weight: 700; }
+        button { border: none; background: none; color: inherit; cursor: pointer; font-family: inherit; outline: none; }
+        a { text-decoration: none; color: inherit; }
+
+        /* ==========================================================================
+           DYNAMIC LIQUID MESH BACKGROUND & TEXTURE
+           ========================================================================== */
+        .mesh-bg {
+            position: fixed; inset: 0; z-index: -10; pointer-events: none; overflow: hidden;
+            background-color: var(--bg-base);
+            transition: background-color 1.5s ease;
+        }
+        .mesh-orb {
+            position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.6;
+            transition: background 1.5s ease;
+        }
+        .orb-1 { top: -10%; left: -10%; width: 60vw; height: 60vw; background: var(--bg-1); animation: float1 25s infinite alternate ease-in-out; }
+        .orb-2 { bottom: -10%; right: -10%; width: 70vw; height: 70vw; background: var(--bg-2); animation: float2 30s infinite alternate ease-in-out; }
+        .orb-3 { top: 30%; left: 40%; width: 50vw; height: 50vw; background: var(--bg-3); animation: float3 20s infinite alternate ease-in-out; opacity: 0.4; }
+
+        @keyframes float1 { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(10vw, 15vh) scale(1.1); } }
+        @keyframes float2 { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(-15vw, -10vh) scale(1.2); } }
+        @keyframes float3 { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(-10vw, 20vh) scale(0.9); } }
+
+        /* Cinematic Film Grain */
+        .grain {
+            position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.05; mix-blend-mode: overlay;
+        }
+
+        /* Ambient Stars/Dust */
+        .particles {
+            position: fixed; inset: 0; z-index: -9; pointer-events: none;
+            background-image: radial-gradient(rgba(255,255,255,0.15) 1px, transparent 1px);
+            background-size: 45px 45px; opacity: 0.3;
+            animation: drift 150s linear infinite;
+        }
+        @keyframes drift { 0% { background-position: 0 0; } 100% { background-position: 1000px 1000px; } }
+
+        /* ==========================================================================
+           DYNAMIC 3D EFFECTS ENGINE
+           ========================================================================== */
+        #fx-background { position: fixed; inset: 0; z-index: -5; pointer-events: none; overflow: hidden; }
+        #fx-foreground { position: fixed; inset: 0; z-index: 9000; pointer-events: none; overflow: hidden; }
+        .thunder-flash { position: fixed; inset: 0; background: #FFF; z-index: 8000; opacity: 0; pointer-events: none; mix-blend-mode: overlay; }
+        .thunder-active { animation: lightning-strike 0.4s ease-out; }
+
+        .cloud-3d { position: absolute; background: rgba(255, 255, 255, 0.3); border-radius: 50%; filter: blur(50px); box-shadow: 100px 50px 100px rgba(255,255,255,0.1); animation: cloud-drift linear infinite; }
+        .cloud-fore { filter: blur(70px); opacity: 0.12; z-index: 9000; } 
+        .rain-drop { position: absolute; width: 2px; height: 60px; background: linear-gradient(transparent, rgba(255,255,255,0.4)); animation: rain-fall linear infinite; }
+        .fog-bank { position: absolute; height: 100vh; width: 200vw; background: linear-gradient(90deg, transparent, rgba(200,200,255,0.1), transparent); filter: blur(60px); animation: fog-drift 40s linear infinite alternate; }
+        .petal { position: absolute; width: 14px; height: 14px; background: #FFB3C6; border-radius: 14px 0 14px 0; opacity: 0.8; animation: petal-fall linear infinite, petal-sway ease-in-out infinite alternate; box-shadow: 0 0 12px rgba(255,179,198,0.6); }
+        .light-streak { position: absolute; height: 4px; border-radius: 4px; filter: blur(3px); animation: streak-zoom linear infinite; }
+        .sun-ray { position: absolute; top: 50%; left: 50%; width: 150vw; height: 150vw; background: conic-gradient(from 0deg, transparent 0deg, rgba(255,209,102,0.1) 15deg, transparent 30deg, rgba(255,209,102,0.1) 45deg, transparent 60deg); transform: translate(-50%, -50%); animation: sun-spin 120s linear infinite; }
+        .dust-mote { position: absolute; width: 5px; height: 5px; background: rgba(217, 164, 65, 0.7); border-radius: 50%; filter: blur(2px); animation: dust-float linear infinite; }
+
+        @keyframes cloud-drift { from { transform: translateX(-50vw); } to { transform: translateX(120vw); } }
+        @keyframes rain-fall { from { transform: translateY(-10vh); } to { transform: translateY(110vh); } }
+        @keyframes fog-drift { from { transform: translateX(-20vw); } to { transform: translateX(0); } }
+        @keyframes petal-fall { from { top: -10vh; } to { top: 110vh; } }
+        @keyframes petal-sway { from { transform: translateX(-40px) rotate(0deg); } to { transform: translateX(40px) rotate(180deg); } }
+        @keyframes streak-zoom { from { transform: translateX(-20vw); } to { transform: translateX(120vw); } }
+        @keyframes sun-spin { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
+        @keyframes dust-float { from { transform: translateY(110vh) translateX(0); } to { transform: translateY(-10vh) translateX(30px); } }
+        @keyframes lightning-strike { 0% { opacity: 0; } 10% { opacity: 0.9; } 20% { opacity: 0; } 30% { opacity: 0.6; } 100% { opacity: 0; } }
+        @keyframes thunder-shake { 0% { transform: translate(0, 0); } 20% { transform: translate(-12px, 6px) rotate(-1deg); } 40% { transform: translate(12px, -6px) rotate(1deg); } 60% { transform: translate(-12px, 6px); } 80% { transform: translate(12px, -6px); } 100% { transform: translate(0, 0); } }
+
+        /* ==========================================================================
+           LAYOUT & GLASSMORPHISM
+           ========================================================================== */
+        .container { width: 100%; max-width: var(--max-width); margin: 0 auto; padding: 0 20px; }
+        .glass-panel {
+            background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.01) 100%);
+            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--border); border-radius: var(--radius-md);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3), var(--glass-highlight);
+            transition: transform 0.2s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+            transform-style: preserve-3d; 
+        }
+        .glass-panel:hover { border-color: var(--border-light); box-shadow: 0 20px 50px rgba(0,0,0,0.5), var(--glass-highlight); }
+
+        /* ==========================================================================
+           HEADER & NAVIGATION
+           ========================================================================== */
+        header {
+            position: fixed; top: 0; left: 0; width: 100%; height: var(--nav-height);
+            z-index: 100; border-bottom: 1px solid var(--border);
+            background: rgba(10, 7, 16, 0.4); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            display: flex; align-items: center; box-shadow: 0 4px 30px rgba(0,0,0,0.2);
+        }
+        .nav-inner { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .logo { display: flex; align-items: center; gap: 8px; font-size: 1.3rem; letter-spacing: -0.5px; color: #fff;}
+        .logo-icon { color: var(--primary); transition: color 1.5s ease; }
+        
+        .desktop-nav { display: none; gap: 35px; align-items: center; }
+        .desktop-nav button { font-size: 0.95rem; font-weight: 500; color: var(--text-muted); transition: var(--trans-fast); letter-spacing: 0.5px;}
+        .desktop-nav button:hover { color: var(--text-main); text-shadow: 0 0 15px rgba(255,255,255,0.4); }
+        
+        .mobile-menu-btn { display: block; font-size: 1.8rem; color: #fff;}
+
+        /* Drawers */
+        .drawer {
+            position: fixed; top: 0; right: -100%; width: 100%; max-width: 400px; height: 100vh;
+            background: rgba(10, 7, 16, 0.95); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+            z-index: 200; transition: var(--trans-smooth); border-left: 1px solid var(--border);
+            display: flex; flex-direction: column; padding: 30px;
+        }
+        .drawer.open { right: 0; }
+        .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+        .drawer-close { font-size: 2.5rem; color: var(--text-main); line-height: 1; }
+        .drawer-links { display: flex; flex-direction: column; gap: 32px; font-size: 2.2rem; font-family: 'Space Grotesk', sans-serif; }
+        .drawer-links button { text-align: left; transition: var(--trans-fast); font-weight: 600;}
+        .drawer-links button:hover { color: var(--primary); transform: translateX(10px); }
+
+        /* ==========================================================================
+           HERO SECTION
+           ========================================================================== */
+        .hero { padding: calc(var(--nav-height) + 90px) 0 60px; text-align: center; }
+        .waveform { display: inline-flex; align-items: flex-end; gap: 4px; height: 28px; margin-bottom: 24px; }
+        .wave-bar { width: 5px; background: var(--primary); border-radius: 4px; animation: wave 1s ease-in-out infinite alternate; transition: background 1.5s ease; }
+        .wave-bar:nth-child(1) { height: 40%; animation-delay: 0.0s; }
+        .wave-bar:nth-child(2) { height: 80%; animation-delay: 0.2s; }
+        .wave-bar:nth-child(3) { height: 100%; animation-delay: 0.4s; }
+        .wave-bar:nth-child(4) { height: 60%; animation-delay: 0.6s; }
+        .wave-bar:nth-child(5) { height: 30%; animation-delay: 0.8s; }
+        @keyframes wave { 0% { transform: scaleY(0.2); } 100% { transform: scaleY(1); } }
+        
+        .hero h1 { font-size: clamp(3rem, 9vw, 6rem); line-height: 1.05; letter-spacing: -2px; margin-bottom: 20px; background: linear-gradient(135deg, #fff 40%, var(--text-muted) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; position: relative; z-index: 10; }
+        .hero p { font-size: clamp(1.1rem, 4vw, 1.4rem); color: var(--text-muted); max-width: 550px; margin: 0 auto; line-height: 1.6; position: relative; z-index: 10;}
+
+        /* ==========================================================================
+           VIBE SELECTOR
+           ========================================================================== */
+        .vibe-section { margin-bottom: 70px; position: relative; z-index: 10; }
+        .search-container { max-width: 320px; margin: 0 auto 32px; position: relative; }
+        .search-input { 
+            width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--border); 
+            border-radius: 100px; padding: 14px 24px; color: var(--text-main); font-family: inherit; font-size: 1rem;
+            backdrop-filter: blur(15px); outline: none; transition: var(--trans-fast); box-shadow: var(--glass-highlight);
+        }
+        .search-input:focus { border-color: var(--primary); box-shadow: 0 0 25px rgba(255,255,255,0.05), var(--glass-highlight); background: rgba(255,255,255,0.06); }
+
+        .vibe-carousel {
+            display: flex; overflow-x: auto; scroll-snap-type: x mandatory; 
+            gap: 20px; padding: 10px 0 30px; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+        }
+        .vibe-carousel::-webkit-scrollbar { display: none; }
+        
+        .vibe-card {
+            flex: 0 0 82vw; scroll-snap-align: center; max-width: 360px;
+            padding: 32px 28px; text-align: left; cursor: pointer; transition: transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
+            position: relative; overflow: hidden;
+        }
+        .vibe-card::before {
+            content: ''; position: absolute; inset: 0; opacity: 0; transition: var(--trans-smooth);
+            background: radial-gradient(circle at bottom right, var(--card-color), transparent 75%);
+        }
+        .vibe-card.selected {
+            border-color: var(--primary); box-shadow: 0 15px 45px rgba(0,0,0,0.6), var(--glass-highlight);
+            transform: scale(1.02) translateY(-6px);
+        }
+        .vibe-card.selected::before { opacity: 0.25; }
+        .vibe-card.selected::after {
+            content: '✓'; position: absolute; top: 20px; right: 20px; color: var(--primary); font-weight: bold; font-size: 1.2rem;
+            background: rgba(255,255,255,0.1); width: 30px; height: 30px; display:flex; align-items:center; justify-content:center; border-radius: 50%; box-shadow: var(--glass-highlight);
+        }
+        
+        .vibe-icon { font-size: 3.2rem; margin-bottom: 20px; display: inline-block; transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-style: preserve-3d; transform: translateZ(30px); }
+        .vibe-card:hover .vibe-icon { transform: translateZ(50px) scale(1.15) rotate(10deg); }
+        .vibe-card.selected .vibe-icon { transform: translateZ(50px) scale(1.15) rotate(10deg); }
+        
+        .vibe-title { font-size: 1.7rem; margin-bottom: 10px; position: relative; z-index: 1; transform: translateZ(20px); }
+        .vibe-desc { font-size: 1rem; color: var(--text-muted); position: relative; z-index: 1; line-height: 1.5; transform: translateZ(10px); }
+        .no-results { text-align: center; color: var(--text-muted); display: none; padding: 20px; width: 100%; font-size: 1.1rem;}
+
+        /* ==========================================================================
+           GENERATE BUTTON
+           ========================================================================== */
+        .generate-container { text-align: center; margin-bottom: 90px; padding: 0 20px; position: relative; z-index: 10;}
+        .btn-generate {
+            width: 100%; max-width: 440px; padding: 24px; font-size: 1.2rem; font-weight: 600; letter-spacing: 1px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+            border: 1px solid var(--primary); border-radius: 100px;
+            color: var(--text-main); position: relative; overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), var(--glass-highlight); transition: var(--trans-smooth);
+            display: flex; align-items: center; justify-content: center; gap: 12px;
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+        }
+        .btn-generate::before {
+            content: ''; position: absolute; inset: 0; background: var(--primary); opacity: 0.15; transition: var(--trans-smooth);
+        }
+        .btn-generate:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 20px 50px rgba(0,0,0,0.7), var(--glass-highlight); border-color: var(--glow); }
+        .btn-generate:hover::before { opacity: 0.35; }
+        .btn-generate:active { transform: translateY(2px); }
+
+        .btn-randomize { margin-top: 24px; font-size: 1.05rem; color: var(--text-muted); padding: 12px 24px; display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 100px; transition: var(--trans-fast); background: rgba(0,0,0,0.3); backdrop-filter: blur(10px); box-shadow: var(--glass-highlight);}
+        .btn-randomize:hover { color: var(--text-main); background: var(--surface-hover); border-color: var(--border-light); }
+
+        /* Loader */
+        .loader-overlay {
+            position: fixed; inset: 0; background: rgba(5, 3, 10, 0.95); z-index: 9999;
+            backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.6s ease;
+        }
+        .loader-overlay.active { opacity: 1; pointer-events: all; }
+        .loader-text { font-family: 'Space Grotesk', sans-serif; font-size: 2rem; margin-top: 35px; animation: pulse 1s infinite alternate; color: var(--primary); font-weight: 600; text-shadow: 0 0 20px var(--primary);}
+        @keyframes pulse { 0% { opacity: 0.6; transform: scale(0.98);} 100% { opacity: 1; transform: scale(1.02); } }
+
+        /* ==========================================================================
+           RESULTS SECTION
+           ========================================================================== */
+        .results-section { display: none; padding-bottom: 160px; position: relative; z-index: 10; animation: slideUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(60px); } to { opacity: 1; transform: translateY(0); } }
+
+        .result-hero { text-align: center; margin-bottom: 60px; position: relative; }
+        .result-hero::after { content: ''; position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%); width: 80px; height: 4px; background: var(--primary); border-radius: 4px; box-shadow: 0 0 15px var(--primary);}
+        .res-subtitle { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 5px; color: var(--primary); margin-bottom: 16px; font-weight: 600; display:flex; align-items:center; justify-content:center; gap:10px;}
+        .res-title { font-size: clamp(3.2rem, 9vw, 5.5rem); margin-bottom: 16px; text-shadow: 0 0 40px rgba(255,255,255,0.2); letter-spacing: -1px;}
+        .res-desc { font-size: 1.3rem; color: var(--text-muted); font-style: italic; margin-bottom: 28px; font-weight: 300; line-height: 1.5;}
+        .res-meta { font-size: 0.9rem; color: var(--text-dark); background: rgba(0,0,0,0.4); display: inline-block; padding: 8px 20px; border-radius: 100px; border: 1px solid var(--border); backdrop-filter: blur(10px); box-shadow: var(--glass-highlight);}
+
+        .masonry-grid { display: flex; flex-direction: column; gap: 24px; margin-bottom: 50px; }
+        .card { padding: 35px; display: flex; flex-direction: column; gap: 24px; position: relative; overflow: hidden; }
+        .card::before { content:''; position:absolute; top:0; left:0; width:100%; height:4px; background: linear-gradient(90deg, var(--primary), transparent); opacity: 0.7; }
+        
+        .card-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 10px; transform: translateZ(20px); }
+        .card-title { font-size: 1.15rem; text-transform: uppercase; letter-spacing: 2px; color: var(--text-muted); display: flex; align-items: center; gap: 12px; font-weight: 600;}
+        
+        /* Palette */
+        .palette-swatches { display: flex; height: 120px; border-radius: var(--radius-sm); overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.5); transform: translateZ(30px); }
+        .swatch { flex: 1; transition: flex 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s; cursor: pointer; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 16px; position: relative; }
+        .swatch:hover { flex: 1.8; }
+        .swatch-hex { background: rgba(0,0,0,0.85); padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; font-family: monospace; opacity: 0; transform: translateY(15px); transition: var(--trans-smooth); pointer-events: none; backdrop-filter: blur(5px); box-shadow: var(--glass-highlight); font-weight: 600;}
+        .swatch:hover .swatch-hex { opacity: 1; transform: translateY(0); }
+
+        /* Weather */
+        .weather-display { display: flex; align-items: center; gap: 35px; transform: translateZ(25px);}
+        .weather-temp { font-size: 5rem; font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--primary); line-height: 1; text-shadow: 0 0 30px rgba(255,255,255,0.2); letter-spacing: -2px;}
+        .weather-info p { font-size: 1.1rem; color: var(--text-muted); line-height: 1.6; }
+        .weather-info .cond { font-size: 1.6rem; color: var(--text-main); font-weight: 600; margin-bottom: 8px; }
+
+        /* Data Rows */
+        .data-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; transform: translateZ(20px);}
+        .data-row:last-child { margin-bottom: 0; }
+        .data-label { font-size: 0.85rem; text-transform: uppercase; color: var(--primary); letter-spacing: 2px; font-weight: 600; opacity: 0.9;}
+        .data-value { font-size: 1.25rem; line-height: 1.6; font-weight: 300;}
+
+        /* ==========================================================================
+           CHARACTER GENERATOR (ACTUAL 2D PIC INCLUDED)
+           ========================================================================== */
+        .char-card { border-color: var(--primary); box-shadow: 0 20px 60px rgba(0,0,0,0.6), var(--glass-highlight); padding: 0; overflow: hidden;}
+        .char-card::before { display: none; }
+        
+        .char-layout { display: flex; flex-direction: column; }
+        
+        /* Avatar Box */
+        .char-avatar-box {
+            background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 100%);
+            padding: 50px 20px; display: flex; justify-content: center; align-items: center;
+            border-bottom: 1px solid var(--border); position: relative;
+        }
+        /* SVG Avatar Container */
+        .svg-avatar {
+            width: 250px; height: 250px; border-radius: 50%;
+            background: rgba(0,0,0,0.4); border: 2px solid var(--border-light);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.7), var(--glass-highlight);
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden; position: relative; transform: translateZ(40px);
+        }
+        .svg-avatar svg { width: 100%; height: 100%; object-fit: cover; }
+
+        .char-details { padding: 40px; flex: 1; display: flex; flex-direction: column; gap: 24px; transform: translateZ(20px);}
+        
+        .char-header-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .char-name { font-size: 3.2rem; color: var(--primary); line-height: 1.1; margin-bottom: 8px; letter-spacing: -1.5px; text-shadow: 0 0 25px rgba(255,255,255,0.15);}
+        .char-role { font-size: 1.2rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 3px; opacity: 0.9;}
+        
+        .char-quote { font-style: italic; font-size: 1.4rem; color: var(--text-muted); border-left: 4px solid var(--primary); padding-left: 24px; margin: 15px 0; font-weight: 300; line-height: 1.6;}
+        
+        .char-tags { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 15px; }
+        .char-tag { padding: 8px 18px; background: rgba(255,255,255,0.08); border: 1px solid var(--border-light); border-radius: 100px; font-size: 0.95rem; font-weight: 500; box-shadow: var(--glass-highlight);}
+        
+        .btn-new-char { 
+            background: rgba(255,255,255,0.08); border: 1px solid var(--primary); padding: 12px 24px; 
+            border-radius: 100px; font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; gap: 8px; 
+            transition: var(--trans-smooth); color: var(--text-main); backdrop-filter: blur(10px); box-shadow: var(--glass-highlight);
+        }
+        .btn-new-char:hover { background: var(--primary); color: #000; box-shadow: 0 0 25px var(--primary); transform: translateY(-3px);}
+
+        .extra-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+        .track-list { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; transform: translateZ(20px);}
+        .track-item { display: flex; align-items: center; gap: 14px; font-size: 1.15rem; padding: 16px; background: rgba(0,0,0,0.4); border-radius: 12px; border: 1px solid var(--border); box-shadow: var(--glass-highlight);}
+        .track-icon { color: var(--primary); font-size: 1.4rem; }
+
+        .story-content { font-size: 1.5rem; line-height: 1.8; color: var(--text-main); font-weight: 300; transform: translateZ(25px);}
+
+        /* Bars (DNA & Energy) */
+        .bar-container { display: flex; align-items: center; margin-bottom: 18px; gap: 16px; transform: translateZ(20px);}
+        .bar-label { width: 110px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); font-weight: 600;}
+        .bar-track { flex: 1; height: 8px; background: rgba(255,255,255,0.15); border-radius: 10px; overflow: hidden; position: relative; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);}
+        .bar-fill { height: 100%; background: var(--primary); border-radius: 10px; width: 0%; transition: width 1.5s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 0 20px var(--primary); position: relative;}
+        .bar-fill::after { content:''; position:absolute; top:0; right:0; bottom:0; left:0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent); animation: shimmer 2s infinite; }
+        .bar-val { width: 50px; text-align: right; font-size: 1rem; font-family: monospace; font-weight: 600; color: var(--text-main);}
+
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
+        /* Mobile Bottom Action Bar */
+        .bottom-action-bar {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            background: rgba(10, 7, 16, 0.85); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--border-light); border-radius: 100px;
+            display: flex; gap: 12px; padding: 12px; z-index: 9999; box-shadow: 0 20px 60px rgba(0,0,0,0.7), var(--glass-highlight);
+            opacity: 0; pointer-events: none; transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .bottom-action-bar.visible { opacity: 1; pointer-events: all; }
+        .action-btn { padding: 16px 28px; border-radius: 100px; font-size: 1.05rem; font-weight: 600; display: flex; align-items: center; gap: 10px; transition: var(--trans-fast); border: 1px solid transparent;}
+        .action-btn:hover { background: rgba(255,255,255,0.1); color: var(--primary); border-color: var(--border-light);}
+        .action-btn.active { color: #ff4b4b; background: rgba(255, 75, 75, 0.15); border-color: rgba(255, 75, 75, 0.4);}
+
+        /* ==========================================================================
+           RESPONSIVE DESKTOP LAYOUT
+           ========================================================================== */
+        @media (min-width: 768px) {
+            .mobile-menu-btn { display: none; }
+            .desktop-nav { display: flex; }
+            
+            .vibe-carousel { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); padding-bottom: 0; gap: 24px;}
+            .vibe-card { flex: auto; max-width: none; }
+            
+            .masonry-grid { display: grid; grid-template-columns: repeat(2, 1fr); align-items: start; }
+            .card.full-width { grid-column: 1 / -1; }
+            
+            .char-layout { flex-direction: row; }
+            .char-avatar-box { width: 380px; border-bottom: none; border-right: 1px solid var(--border); padding: 50px; }
+            .svg-avatar { width: 280px; height: 280px; }
+            .char-details { padding: 50px; }
+            
+            .extra-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        /* ==========================================================================
+           TOAST NOTIFICATIONS
+           ========================================================================== */
+        .toast {
+            position: fixed; top: 30px; left: 50%; transform: translate(-50%, -20px);
+            background: var(--text-main); color: #000; padding: 16px 32px; border-radius: 100px;
+            font-size: 1.05rem; font-weight: 600; box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+            opacity: 0; pointer-events: none; transition: var(--trans-smooth); z-index: 10000;
+        }
+        .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+        /* ==========================================================================
+           ABOUT SECTION & FOOTER
+           ========================================================================== */
+        .about-section { padding: 100px 20px; text-align: center; border-top: 1px solid var(--border); margin-top: 80px; position: relative; z-index: 10;}
+        .about-section h2 { font-size: 3rem; margin-bottom: 24px; letter-spacing: -1px;}
+        .about-section p { color: var(--text-muted); max-width: 700px; margin: 0 auto 50px; line-height: 1.8; font-size: 1.25rem;}
+        .stats { display: flex; justify-content: center; gap: 35px; flex-wrap: wrap; }
+        .stat-item { background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 30px 45px; border-radius: var(--radius-md); box-shadow: 0 15px 40px rgba(0,0,0,0.4), var(--glass-highlight); backdrop-filter: blur(15px);}
+        .stat-val { font-size: 2.8rem; font-weight: 700; color: var(--primary); font-family: 'Space Grotesk', sans-serif; text-shadow: 0 0 20px rgba(255,255,255,0.1); }
+        .stat-label { font-size: 1rem; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dark); margin-top: 6px; font-weight: 600;}
+        
+        footer { text-align: center; padding: 60px 20px; color: var(--text-dark); font-size: 1rem; border-top: 1px solid var(--border); background: rgba(0,0,0,0.6); position: relative; z-index: 10; backdrop-filter: blur(20px);}
+
+    </style>
+</head>
+<body>
+
+    <!-- DYNAMIC LIQUID MESH BACKGROUND -->
+    <div class="mesh-bg" id="mesh-bg">
+        <div class="mesh-orb orb-1"></div>
+        <div class="mesh-orb orb-2"></div>
+        <div class="mesh-orb orb-3"></div>
+    </div>
+    <div class="particles"></div>
+    <div class="grain"></div>
+
+    <!-- 3D EFFECTS ENGINE LAYERS -->
+    <div id="fx-background"></div>
+    <div class="thunder-flash" id="thunder-overlay"></div>
+
+    <!-- Header -->
+    <header>
+        <div class="container nav-inner">
+            <a href="#" class="logo brand-font" onclick="location.reload()">
+                <span class="logo-icon">🎧</span> AESTHETIC
+            </a>
+            <nav class="desktop-nav">
+                <button onclick="scrollToEl('vibes')">Vibes</button>
+                <button onclick="toggleFavorites()">Favorites</button>
+                <button onclick="scrollToEl('about')">About</button>
+            </nav>
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+        </div>
+    </header>
+
+    <!-- Drawers -->
+    <div class="drawer" id="mobile-drawer">
+        <div class="drawer-header">
+            <div class="logo brand-font"><span style="color:var(--primary)">🎧</span> AESTHETIC</div>
+            <button class="drawer-close" onclick="toggleMobileMenu()">×</button>
+        </div>
+        <div class="drawer-links">
+            <button onclick="toggleMobileMenu(); scrollToEl('vibes');">Vibes</button>
+            <button onclick="toggleMobileMenu(); toggleFavorites();">Favorites</button>
+            <button onclick="toggleMobileMenu(); scrollToEl('about');">About</button>
+        </div>
+    </div>
+
+    <div class="drawer" id="fav-drawer" style="right: auto; left: -100%;">
+        <div class="drawer-header">
+            <h2 class="brand-font">Favorites ♡</h2>
+            <button class="drawer-close" onclick="toggleFavorites()">×</button>
+        </div>
+        <div id="fav-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px; padding-right: 10px;">
+        </div>
+        <button class="btn-generate" style="width:100%; max-width:100%; border-color:rgba(255,75,75,0.6); color:#ff4b4b; background:rgba(255,75,75,0.1);" onclick="clearFavorites()">Clear All</button>
+    </div>
+
+    <!-- Main -->
+    <main>
+        <!-- Hero -->
+        <section class="hero container">
+            <div class="waveform">
+                <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+            </div>
+            <h1>SONG →<br>AESTHETIC</h1>
+            <p>Pick a vibe. Get a universe. Turn a music mood into colors, places, characters, weather, and stories.</p>
+        </section>
+
+        <!-- Selector -->
+        <section class="vibe-section container" id="vibes">
+            <div class="search-container">
+                <input type="text" class="search-input" id="vibe-search" placeholder="Search aesthetics...">
+            </div>
+            <div class="vibe-carousel" id="vibe-container"></div>
+            <div class="no-results" id="no-results">No vibe found ✨</div>
+        </section>
+
+        <!-- Action -->
+        <div class="generate-container">
+            <button class="btn-generate" onclick="generateAesthetic()">✨ GENERATE MY AESTHETIC</button>
+            <button class="btn-randomize" onclick="randomizeEverything()">🎲 Surprise Me</button>
+        </div>
+
+        <!-- Loader -->
+        <div class="loader-overlay" id="loader">
+            <div class="waveform" style="transform: scale(3);">
+                <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+            </div>
+            <div class="loader-text" id="loader-text">Creating your universe...</div>
+        </div>
+
+        <!-- RESULTS -->
+        <section class="results-section container" id="results">
+            
+            <div class="result-hero">
+                <div class="res-subtitle" id="r-sub">YOUR AESTHETIC</div>
+                <h2 class="res-title brand-font" id="r-title">VIBE</h2>
+                <p class="res-desc" id="r-desc">"Quote"</p>
+                <div class="res-meta" id="r-meta">Meta</div>
+            </div>
+
+            <div class="masonry-grid">
+                
+                <div class="glass-panel card full-width">
+                    <div class="card-header"><span class="card-title">🎨 Color Palette</span></div>
+                    <div class="palette-swatches" id="r-palette"></div>
+                </div>
+
+                <div class="glass-panel card">
+                    <div class="card-header"><span class="card-title">🌍 Setting</span></div>
+                    <div class="data-row"><span class="data-label">Location</span><span class="data-value" id="rs-loc"></span></div>
+                    <div class="data-row"><span class="data-label">Time</span><span class="data-value" id="rs-time"></span></div>
+                    <div class="data-row"><span class="data-label">Atmosphere</span><span class="data-value" id="rs-atm"></span></div>
+                    <div class="data-row"><span class="data-label">Environment</span><span class="data-value" id="rs-env"></span></div>
+                </div>
+
+                <div class="glass-panel card">
+                    <div class="card-header"><span class="card-title">☁️ Weather</span></div>
+                    <div class="weather-display">
+                        <div class="weather-temp" id="rw-temp"></div>
+                        <div class="weather-info">
+                            <div class="cond" id="rw-cond"></div>
+                            <p id="rw-wind"></p>
+                            <p id="rw-feel"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2D CHARACTER CARD -->
+                <div class="glass-panel card char-card full-width" id="char-container">
+                    <div class="char-layout">
+                        <div class="char-avatar-box">
+                            <div class="svg-avatar" id="r-avatar"></div>
+                        </div>
+                        <div class="char-details">
+                            <div class="char-header-row">
+                                <div>
+                                    <div class="card-title" style="margin-bottom:14px; color:var(--primary);">🎭 Your Character</div>
+                                    <h3 class="char-name brand-font" id="rc-name"></h3>
+                                    <div class="char-role" id="rc-role"></div>
+                                </div>
+                                <button class="btn-new-char" onclick="generateNewCharacter()">🎲 Re-roll</button>
+                            </div>
+
+                            <div class="char-tags" id="rc-tags"></div>
+                            <div class="char-quote" id="rc-quote"></div>
+                            
+                            <div class="extra-grid">
+                                <div>
+                                    <div class="data-row"><span class="data-label">Appearance</span><span class="data-value" id="rc-app"></span></div>
+                                    <div class="data-row"><span class="data-label">Signature Trait</span><span class="data-value" style="color:var(--primary); font-weight:500;" id="rc-trait"></span></div>
+                                    <div class="data-row"><span class="data-label">Secret</span><span class="data-value" id="rc-sec"></span></div>
+                                    <div class="data-row"><span class="data-label">Goal & Fear</span><span class="data-value" id="rc-gf"></span></div>
+                                </div>
+                                <div>
+                                    <div class="data-label" style="margin-bottom:18px;">Character Energy</div>
+                                    <div id="rc-bars"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="data-row" style="margin-top:10px;"><span class="data-label">Backstory</span><span class="data-value" style="font-size:1.15rem; color:var(--text-muted);" id="rc-back"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel card">
+                    <div class="card-header"><span class="card-title">👕 Outfit Vibe</span></div>
+                    <div class="data-row"><span class="data-label">Top</span><span class="data-value" id="ro-top"></span></div>
+                    <div class="data-row"><span class="data-label">Bottom</span><span class="data-value" id="ro-bot"></span></div>
+                    <div class="data-row"><span class="data-label">Shoes & Acc.</span><span class="data-value" id="ro-sho"></span></div>
+                    <div class="data-row"><span class="data-label">Style</span><span class="data-value" style="color:var(--primary); font-weight:500;" id="ro-sty"></span></div>
+                </div>
+
+                <div class="glass-panel card">
+                    <div class="card-header"><span class="card-title">🎬 Cinematic Atmosphere</span></div>
+                    <div class="data-row"><span class="data-label">Camera</span><span class="data-value" id="ra-cam"></span></div>
+                    <div class="data-row"><span class="data-label">Lighting</span><span class="data-value" id="ra-lig"></span></div>
+                    <div class="data-row"><span class="data-label">Sound Design</span><span class="data-value" id="ra-snd"></span></div>
+                    <div class="data-row" style="margin-top:10px;"><span class="data-label">Scent & Texture</span><span class="data-value" id="ra-scent"></span></div>
+                </div>
+
+                <div class="glass-panel card full-width">
+                    <div class="card-header"><span class="card-title">📖 Mini Storyline</span></div>
+                    <div class="story-content" id="r-story"></div>
+                </div>
+
+                <div class="glass-panel card">
+                    <div class="card-header"><span class="card-title">🧬 Aesthetic DNA</span></div>
+                    <div id="r-dna"></div>
+                </div>
+
+                <div class="glass-panel card">
+                    <div class="card-header"><span class="card-title">🎵 Music & Energy</span></div>
+                    <div class="data-row"><span class="data-label">Vibe & Tempo</span><span class="data-value" id="rm-tmp"></span></div>
+                    <div class="data-row"><span class="data-label">Instruments</span><span class="data-value" id="rm-ins"></span></div>
+                    <div class="data-row"><span class="data-label">Best Listened</span><span class="data-value" style="color:var(--primary);" id="rm-lis"></span></div>
+                    
+                    <div class="data-label" style="margin-top:24px;">Generated Soundtrack</div>
+                    <div class="track-list" id="r-tracks"></div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Bottom Action Bar -->
+        <div class="bottom-action-bar" id="action-bar">
+            <button class="action-btn" id="btn-save" onclick="saveFavorite()">♡ Save</button>
+            <button class="action-btn" onclick="shareAesthetic()">↗ Share</button>
+            <button class="action-btn" onclick="exportCard()">↓ Export</button>
+            <button class="action-btn" onclick="generateAesthetic(false, true)">↻ Again</button>
+        </div>
+
+        <!-- About -->
+        <section class="about-section container" id="about">
+            <h2 class="brand-font">Music creates an atmosphere before you even notice it.</h2>
+            <p>Song → Aesthetic turns that feeling into a visual world — colors, weather, places, characters and stories. Fully generated in your browser with dynamic 3D environments.</p>
+            <div class="stats">
+                <div class="stat-item"><div class="stat-val">7</div><div class="stat-label">Vibes</div></div>
+                <div class="stat-item"><div class="stat-val">35+</div><div class="stat-label">Characters</div></div>
+                <div class="stat-item"><div class="stat-val">∞</div><div class="stat-label">Combinations</div></div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p class="brand-font" style="font-size:1.4rem; color:var(--text-main); margin-bottom:12px;">🎧 SONG → AESTHETIC</p>
+        <p>Turn a vibe into a universe.</p>
+        <p style="margin-top:24px; opacity:0.5; font-size:0.9rem;">No account required. Runs entirely locally.</p>
+    </footer>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">Message</div>
+
+    <!-- Hidden Canvas for Export -->
+    <canvas id="export-canvas" style="display:none;"></canvas>
+    
+    <!-- FOREGROUND FX LAYER -->
+    <div id="fx-foreground"></div>
+
+    <!-- ==========================================================================
+         JAVASCRIPT LOGIC, 3D EFFECTS & DATA
+         ========================================================================== -->
+    <script>
+        /* --- MASSIVE DATA DICTIONARY --- */
+        const VIBES = {
+            dreamy: {
+                id: 'dreamy', name: 'Dreamy', icon: '🌙', desc: 'Where memories feel softer than reality.',
+                colors: { primary: '#B8A1FF', secondary: '#D9C7FF', glow: '#E8DFFF', bg: '#0A0710', bg1: '#382570', bg2: '#171336', bg3: '#5C4A9C' },
+                palettes: [ ['#B8A1FF','#D9C7FF','#E8DFFF','#8E7CC3','#171327'], ['#A1C4FF','#C7DBFF','#E6EFFF','#7A9ECC','#131927'], ['#FFB8E0','#FFD9EE','#FFF0F8','#CC93B3','#27131F'] ],
+                settings: [ {loc:'Rooftop above a sleeping city', time:'2:17 AM', atm:'Quiet and surreal', env:'Distant traffic, cool wind'}, {loc:'Endless pastel beach', time:'Twilight', atm:'Ethereal and calm', env:'Soft waves, silver sand'}, {loc:'Floating train carriage', time:'Unknown', atm:'Peaceful isolation', env:'Passing clouds, rhythmic humming'} ],
+                weathers: [ {icon:'☁️', temp:'19°C', cond:'Light Mist', wind:'8 km/h', feel:'Soft & cool'}, {icon:'✨', temp:'15°C', cond:'Starlit', wind:'2 km/h', feel:'Crisp & magical'}, {icon:'🌧️', temp:'17°C', cond:'Drizzle', wind:'5 km/h', feel:'Melancholic'} ],
+                outfits: [ {top:'Oversized cream hoodie', bot:'Relaxed dark jeans', sho:'Minimal sneakers', sty:'Soft midnight streetwear'}, {top:'Flowing silk shirt', bot:'Loose linen pants', sho:'Barefoot, delicate rings', sty:'Ethereal comfort'}, {top:'Chunky knit cardigan', bot:'Soft shorts', sho:'High socks', sty:'Cozy isolation'} ],
+                atmospheres: [ {cam:'Slow dreamy pan', lig:'Moonlight & distant neon', snd:'Reverb heavy synths', scent:'Ozone and lavender'}, {cam:'Static wide shot', lig:'Soft pastel twilight', snd:'Distant train tracks', scent:'Cold air and vanilla'}, {cam:'Handheld closeups', lig:'Bioluminescent glow', snd:'Vinyl crackle', scent:'White tea and rain'} ],
+                music: [ {tmp:'Slow (34% Energy)', ins:'Soft synths + piano', lis:'Headphones at night'}, {tmp:'Floating (20% Energy)', ins:'Harp, ambient pads', lis:'Laying on the floor'} ],
+                tracks: ['Lucid Reality', 'Clouds Inside', 'Midnight Loop'],
+                characters: [
+                    { name:'Elian Vale', role:'The Dreamweaver', age:22, app:'Messy silver-blonde hair, tired blue eyes. Wears oversized sweaters.', trait:'Carries a glass jar of trapped fog.', sec:'Hasn\'t slept in a week.', gf:'Goal: Find the sky edge. Fear: Waking up.', tags:['Quiet','Observant','Nostalgic'], quote:'Some memories sound better after midnight.', back:'Elian wanders the city lines when everyone else is dreaming. He collects thoughts people forget.', ava:{hair:1, skin:'#FFF0E6', hcol:'#E8E8E8', clo:'#B8A1FF'} },
+                    { name:'Mira Solenne', role:'Cloud Walker', age:20, app:'Long flowing dark hair, pale skin, wears soft layered fabrics.', trait:'Never wears shoes indoors or outdoors.', sec:'Can hear stars humming.', gf:'Goal: Touch a cloud. Fear: Gravity.', tags:['Creative','Gentle','Distant'], quote:'If you look up long enough, you stop falling.', back:'Raised in an observatory, Mira spent her life looking up. Now, she feels connected to the sky.', ava:{hair:2, skin:'#FFE3D4', hcol:'#2A2A35', clo:'#D9C7FF'} },
+                    { name:'Noa Arden', role:'The Stargazer', age:24, app:'Short dark curly hair, round glasses, paint on fingers.', trait:'Draws constellations on train windows.', sec:'Waiting for someone who doesn\'t exist.', gf:'Goal: Paint the universe. Fear: Blank spaces.', tags:['Dreamer','Artistic','Silent'], quote:'The dark is just a canvas we forgot how to use.', back:'Noa rides the midnight loop line constantly, sketching the blurred lights until they form galaxies.', ava:{hair:3, skin:'#8C624E', hcol:'#1A1A1A', clo:'#E8DFFF', acc:'glasses'} },
+                    { name:'Rowan Ellis', role:'Sleepwalker', age:21, app:'Bedhead, wearing mismatched soft clothes, holds a polaroid.', trait:'Takes photos of empty spaces.', sec:'Believes the world resets at 3AM.', gf:'Goal: Document the reset. Fear: Forgetting.', tags:['Curious','Wandering','Soft'], quote:'Empty rooms hold the loudest secrets.', back:'Rowan found a camera that only captures things that aren\'t there.', ava:{hair:4, skin:'#F5D0B5', hcol:'#8B5A44', clo:'#8E7CC3'} }
+                ],
+                stories: [
+                    "You wake up on a train with no destination printed on the ticket. Outside, the clouds sit below the tracks like an endless ocean. At the final station, a note has your name on it.",
+                    "The mirror in the hallway hasn't shown your reflection for days; instead, it shows a room bathed in blue light. Tonight, the handle on the mirror-door finally turns from the other side.",
+                    "You find a cassette tape labeled 'Tomorrow'. When you press play, you hear your own voice describing a beautiful city you've never been to."
+                ]
+            },
+            nostalgic: {
+                id: 'nostalgic', name: 'Nostalgic', icon: '📼', desc: 'Old photos, familiar places, and golden hour warmth.',
+                colors: { primary: '#D9A441', secondary: '#C9784A', glow: '#E8CFA9', bg: '#170E0A', bg1: '#6E451C', bg2: '#3D1E0C', bg3: '#9A6126' },
+                palettes: [ ['#D9A441','#C9784A','#E8CFA9','#76533C','#241A15'], ['#E08E36','#F2D0A4','#9E6D42','#5C4A3D','#1C1411'] ],
+                settings: [ {loc:'Childhood suburban street', time:'5:45 PM', atm:'Warm and golden', env:'Cicadas humming, sprinkler sounds'}, {loc:'Abandoned 90s arcade', time:'Late afternoon', atm:'Dusty and glowing', env:'Flickering CRT screens'} ],
+                weathers: [ {icon:'🌤️', temp:'24°C', cond:'Golden Hour', wind:'12 km/h', feel:'Warm breeze'}, {icon:'🌦️', temp:'22°C', cond:'Sun Showers', wind:'5 km/h', feel:'Humid petrichor'} ],
+                outfits: [ {top:'Faded graphic tee', bot:'Worn-in straight denim', sho:'Beat-up Converse', sty:'90s casual'}, {top:'Oversized corduroy shirt', bot:'Baggy cargo pants', sho:'Retro runners', sty:'Vintage skater'} ],
+                atmospheres: [ {cam:'Handheld camcorder', lig:'Golden hour flares', snd:'Cassette tape hiss', scent:'Sunscreen and hot asphalt'}, {cam:'Static 35mm film', lig:'Warm amber streetlights', snd:'Crickets', scent:'Old paper and dust'} ],
+                music: [ {tmp:'Mid-tempo (55% Energy)', ins:'Acoustic guitar, warm bass', lis:'Driving with windows down'}, {tmp:'Swaying (40% Energy)', ins:'Lo-fi beats, vinyl samples', lis:'Sitting on a porch'} ],
+                tracks: ['Rewind 1999', 'Faded Polaroids', 'Summer Before'],
+                characters: [
+                    { name:'Sammy Reed', role:'The Archivist', age:19, app:'Sun-bleached hair, freckles, wears a yellow windbreaker.', trait:'Never throws away a ticket stub.', sec:'Afraid to grow up.', gf:'Goal: Build a time machine. Fear: Moving on.', tags:['Loyal','Sentimental','Warm'], quote:'Every ending is just a photo waiting to fade.', back:'Sammy spends summers exploring abandoned malls, trying to capture the exact feeling of 1999 on expired 35mm film.', ava:{hair:1, skin:'#FFDFB3', hcol:'#E2B15B', clo:'#D9A441'} },
+                    { name:'Leo Vance', role:'Time Traveler', age:23, app:'Messy brown hair, wears strictly thrifted clothes from 1996.', trait:'Always carries a walkman.', sec:'Hates the present.', gf:'Goal: Live in a memory. Fear: The future.', tags:['Stubborn','Romantic','Lost'], quote:'The past had better soundtracks.', back:'Leo found a radio that tunes into broadcasts from 20 years ago. He listens to it every evening while watching the sun set.', ava:{hair:4, skin:'#E5C1A6', hcol:'#5C3A21', clo:'#C9784A'} },
+                    { name:'Chloe Dean', role:'The Polarizer', age:21, app:'Curly hair tied up, overalls, paint stains.', trait:'Takes photos before looking.', sec:'Can\'t remember childhood.', gf:'Goal: Document everything. Fear: Blank spaces.', tags:['Observant','Creative','Fast'], quote:'If I don\'t capture it, did it really happen?', back:'Chloe\'s room is entirely covered in polaroids. She believes if she captures enough moments, she\'ll eventually figure out who she is.', ava:{hair:5, skin:'#754A33', hcol:'#1A110D', clo:'#E8CFA9'} }
+                ],
+                stories: [
+                    "You find a dusty shoebox in the attic. Inside is a polaroid of you and a friend laughing on a porch. The date on the back is from a summer before you were even born.",
+                    "The local radio station starts playing a song you haven't heard since you were ten. Suddenly, the smell of chlorine and melting popsicles fills the cold winter air.",
+                    "Driving past your old high school, the streetlights flicker and for exactly three seconds, you see your younger self sitting on the bleachers, waving back."
+                ]
+            },
+            mysterious: {
+                id: 'mysterious', name: 'Mysterious', icon: '🕯️', desc: 'Dark rooms, unanswered questions and uncertainty.',
+                colors: { primary: '#6C63FF', secondary: '#352C66', glow: '#B8B1FF', bg: '#080614', bg1: '#21184A', bg2: '#0D0821', bg3: '#453580' },
+                palettes: [ ['#6C63FF','#352C66','#17152B','#111018','#B8B1FF'], ['#4A0E4E','#81171B','#2D112C','#140914','#C687C6'] ],
+                settings: [ {loc:'Abandoned hotel hallway', time:'3:33 AM', atm:'Tense and echoing', env:'Flickering lights'}, {loc:'Hidden jazz bar', time:'Midnight', atm:'Smoky and secret', env:'Clinking glasses, whispers'} ],
+                weathers: [ {icon:'🌫️', temp:'11°C', cond:'Dense Fog', wind:'2 km/h', feel:'Chilling & opaque'}, {icon:'🌧️', temp:'13°C', cond:'Heavy Rain', wind:'20 km/h', feel:'Wet & isolating'} ],
+                outfits: [ {top:'Dark tailored trench coat', bot:'Black trousers', sho:'Leather boots', sty:'Modern Noir'}, {top:'Charcoal turtleneck', bot:'Dark slacks', sho:'Oxford shoes', sty:'Secretive elegance'} ],
+                atmospheres: [ {cam:'Slow creeping zoom', lig:'Harsh shadows, spotlight', snd:'Distant sirens, rain', scent:'Black coffee and damp pavement'}, {cam:'Static wide shot', lig:'Red neon through blinds', snd:'Ticking clock', scent:'Old leather and smoke'} ],
+                music: [ {tmp:'Pulsing (60% Energy)', ins:'Deep bass, distorted synths', lis:'Walking alone'}, {tmp:'Slow (30% Energy)', ins:'Cello, ticking percussion', lis:'Reading a thriller'} ],
+                tracks: ['Room 333', 'Unanswered', 'Footsteps'],
+                characters: [
+                    { name:'Noah Voss', role:'The Stranger', age:28, app:'Sharp features, dark coat, collar pulled up. Piercing gray eyes.', trait:'Always knows what happened yesterday.', sec:'Can\'t predict his own future.', gf:'Goal: Find the truth. Fear: Being wrong.', tags:['Calculated','Quiet','Intense'], quote:'Coincidence is just a lazy word for fate.', back:'Noah showed up in town the night the clock tower stopped working. He solves problems before people realize they have them.', ava:{hair:1, skin:'#EFE7DE', hcol:'#1A1829', clo:'#352C66'} },
+                    { name:'Vera Lin', role:'The Whisperer', age:26, app:'Sleek black hair, dark lipstick, velvet jacket.', trait:'Reads the history of objects by touching them.', sec:'Wears gloves to stop the voices.', gf:'Goal: Find silence. Fear: The noise.', tags:['Mysterious','Elegant','Guarded'], quote:'Everything leaves a fingerprint on the world.', back:'Vera runs a high-end pawn shop. She doesn\'t buy items for their monetary value, she buys them for the secrets they hold.', ava:{hair:2, skin:'#FFEED9', hcol:'#000000', clo:'#6C63FF'} },
+                    { name:'Silas Thorne', role:'The Detective', age:32, app:'Messy stubble, loosened tie, dark circles under eyes.', trait:'Flips a silver coin when thinking.', sec:'The coin has two tails.', gf:'Goal: Close the final case. Fear: The dark.', tags:['Obsessive','Tired','Brilliant'], quote:'The clues are always there before the crime.', back:'Silas works out of an office that doesn\'t exist on the building registry. He only takes cases that involve the impossible.', ava:{hair:4, skin:'#DBC0A5', hcol:'#2B2623', clo:'#17152B'} }
+                ],
+                stories: [
+                    "A stranger sits beside you at the bar, slides over a matchbook with an address and a single word written inside: 'Run.' Then, the lights go completely out.",
+                    "You receive a letter with no return address. Inside is a key and a photograph of a door you've drawn in your sketchbook for years but have never actually seen.",
+                    "The elevator stops on the 13th floor—a floor that doesn't exist on the building's directory. The doors open to a velvet-lined hallway filled with a ticking clock."
+                ]
+            },
+            summer: {
+                id: 'summer', name: 'Summer', icon: '☀️', desc: 'Warm air, open windows and endless afternoons.',
+                colors: { primary: '#FFD166', secondary: '#FF9F68', glow: '#7BDFF2', bg: '#0A1218', bg1: '#1F546E', bg2: '#472B15', bg3: '#2F7C9E' },
+                palettes: [ ['#FFD166','#FF9F68','#FF6B6B','#7BDFF2','#13202B'], ['#F4A261','#E76F51','#E9C46A','#2A9D8F','#264653'] ],
+                settings: [ {loc:'Seaside town pier', time:'5:47 PM', atm:'Breezy and bright', env:'Crashing waves, ice cream'}, {loc:'Sun-drenched coastal highway', time:'High noon', atm:'Hot and free', env:'Wind roaring, radio blasting'} ],
+                weathers: [ {icon:'☀️', temp:'32°C', cond:'Blazing Sun', wind:'15 km/h', feel:'Hot & energetic'}, {icon:'🌅', temp:'26°C', cond:'Sunset', wind:'10 km/h', feel:'Warm & fading'} ],
+                outfits: [ {top:'Floral button-up left open', bot:'Swim trunks', sho:'Woven hat, vintage shades', sty:'Coastal relax'}, {top:'White linen shirt', bot:'Denim shorts', sho:'Canvas sneakers', sty:'Summer classic'} ],
+                atmospheres: [ {cam:'Handheld, running', lig:'Blinding lens flares', snd:'Waves, upbeat indie rock', scent:'Coconut sunscreen and salt'}, {cam:'Drone shot pulling back', lig:'Vibrant orange sunset', snd:'Seagulls, acoustic guitar', scent:'Melting citrus popsicles'} ],
+                music: [ {tmp:'Upbeat (85% Energy)', ins:'Surf guitar, energetic drums', lis:'Beach party'}, {tmp:'Groovy (50% Energy)', ins:'Funk bass, bright brass', lis:'Driving coastlines'} ],
+                tracks: ['Endless August', 'Salt & Citrus', 'Sunburn'],
+                characters: [
+                    { name:'Mia Sol', role:'Sun Chaser', age:21, app:'Tanned, salty hair, wears bright colors and puka shells.', trait:'Disappears when the sun sets.', sec:'Is terrified of the dark.', gf:'Goal: Find the perfect wave. Fear: Winter.', tags:['Energetic','Free','Radiant'], quote:'I only exist in the daylight.', back:'Mia lives in a van by the coast, chasing the summer season around the globe.', ava:{hair:2, skin:'#C98B62', hcol:'#E5C158', clo:'#FF6B6B'} },
+                    { name:'Koa Reef', role:'The Drifter', age:23, app:'Sunburn on nose, unbuttoned shirts, barefoot.', trait:'Maps underwater caves.', sec:'Found a sunken city.', gf:'Goal: Explore the deep. Fear: Being tied down.', tags:['Chill','Adventurous','Silent'], quote:'The ocean keeps better secrets than people.', back:'Koa spends more time underwater than on land. He prefers communicating with the tides.', ava:{hair:4, skin:'#9E6240', hcol:'#261B14', clo:'#7BDFF2'} },
+                    { name:'Summer Day', role:'The Optimist', age:20, app:'Freckles, bright sundresses, woven tote bag.', trait:'Always smells like coconut sunscreen.', sec:'Is secretly heartbroken.', gf:'Goal: Make everyone smile. Fear: Rain.', tags:['Bubbly','Warm','Resilient'], quote:'Nothing is serious when the sun is out.', back:'Summer works at the shaved ice stand on the pier. She knows everyone\'s favorite flavor.', ava:{hair:5, skin:'#FAD2A8', hcol:'#D47B33', clo:'#FFD166'} }
+                ],
+                stories: [
+                    "You find a message in a glass bottle washed ashore. Inside is a hand-drawn map to a hidden beach cove that supposedly only appears on the longest day of the year.",
+                    "Driving down the coast, the radio suddenly tunes into a station playing surf-rock from the 60s. When you look in the rearview mirror, the cars behind you are all vintage convertibles.",
+                    "The ice cream melts over your hand as you watch the sun dip below the horizon. A stranger hands you a napkin and says, 'See you next summer,' before fading into the heat shimmer."
+                ]
+            },
+            lateNight: {
+                id: 'lateNight', name: 'Late-Night', icon: '🌃', desc: 'City lights, headphones, and thoughts at 2AM.',
+                colors: { primary: '#4856A6', secondary: '#1E2A78', glow: '#7D8FFF', bg: '#03040A', bg1: '#111736', bg2: '#06081A', bg3: '#222E6B' },
+                palettes: [ ['#1E2A78','#4856A6','#11152F','#7D8FFF','#050611'], ['#0B0C10','#1F2833','#45A29E','#C5C6C7','#00F0FF'] ],
+                settings: [ {loc:'Neon-lit 24/7 diner', time:'3:15 AM', atm:'Buzzing and isolated', env:'Rain on windows, humming neon'}, {loc:'Empty subway car', time:'1:45 AM', atm:'Rhythmic and cold', env:'Flickering fluorescents'} ],
+                weathers: [ {icon:'🌧️', temp:'14°C', cond:'City Rain', wind:'20 km/h', feel:'Wet & reflective'}, {icon:'🌙', temp:'12°C', cond:'Clear Night', wind:'5 km/h', feel:'Crisp & sharp'} ],
+                outfits: [ {top:'Black oversized hoodie', bot:'Dark cargo pants', sho:'Combat boots', sty:'Urban stealth'}, {top:'Reflective windbreaker', bot:'Techwear joggers', sho:'Chunky sneakers', sty:'Cyberpunk casual'} ],
+                atmospheres: [ {cam:'Tracking out of car window', lig:'Passing streetlights', snd:'Engine hum, synthwave', scent:'Gasoline and wet asphalt'}, {cam:'Static wide', lig:'Blue screen glow', snd:'Keyboard typing, rain', scent:'Cheap cherry lip gloss'} ],
+                music: [ {tmp:'Driving (60% Energy)', ins:'Analog synths, heavy bass', lis:'Night drive on the highway'}, {tmp:'Slow (40% Energy)', ins:'Trap beats, muted piano', lis:'Walking empty streets'} ],
+                tracks: ['3AM Drive', 'Neon Puddles', 'Empty Highway'],
+                characters: [
+                    { name:'Kai Mercer', role:'Night Photographer', age:25, app:'Dark clothes, always has a camera strap around neck.', trait:'Only works when the city sleeps.', sec:'Is photographing ghosts.', gf:'Goal: Capture the unseen. Fear: The sunrise.', tags:['Observant','Loner','Focused'], quote:'The truth comes out when the sun goes down.', back:'Kai sells photos of empty city streets to galleries. They don\'t know he\'s hunting visual glitches.', ava:{hair:1, skin:'#DFCECA', hcol:'#1A1818', clo:'#1E2A78'} },
+                    { name:'Nyx Cipher', role:'The Hacker', age:22, app:'Neon green beanie, pale skin, heavy eyeliner.', trait:'Intercepts digital ghosts.', sec:'Hasn\'t left her apartment in a month.', gf:'Goal: Crack the mainframe. Fear: Disconnection.', tags:['Brilliant','Paranoid','Cynical'], quote:'Sleep is just a pause button.', back:'Nyx taps into the city\'s surveillance grid for fun. Last night, she found a camera feed showing a room that doesn\'t exist.', ava:{hair:3, skin:'#F0EBEB', hcol:'#00F0FF', clo:'#45A29E', acc:'beanie'} },
+                    { name:'Rin Cross', role:'The Driver', age:27, app:'Leather gloves, aviators at night, sharp jawline.', trait:'Knows every empty back-alley.', sec:'Drives a getaway car.', gf:'Goal: One last job. Fear: Traffic.', tags:['Calm','Skilled','Stoic'], quote:'Where we\'re going, there is no traffic.', back:'Rin offers rides to anyone stranded after 2AM. He never asks for money, just a story.', ava:{hair:4, skin:'#BD9E87', hcol:'#262626', clo:'#11152F', acc:'glasses'} }
+                ],
+                stories: [
+                    "Your black coffee starts vibrating just before the diner's vintage jukebox begins playing a song that hasn't been recorded yet. The only other patron winks at you.",
+                    "Looking down from the 40th-floor balcony, the traffic lights below synchronize perfectly to the beat of the song playing in your headphones.",
+                    "You get off at the wrong subway stop. The station is pristine, illuminated by cyan neon, and the digital clock on the wall reads 25:00."
+                ]
+            },
+            romantic: {
+                id: 'romantic', name: 'Romantic', icon: '💗', desc: 'Soft feelings, stolen glances and slow moments.',
+                colors: { primary: '#FF8FAB', secondary: '#FFB3C6', glow: '#FFC8DD', bg: '#140A10', bg1: '#54203B', bg2: '#2B0E1E', bg3: '#80345B' },
+                palettes: [ ['#FF8FAB','#FFB3C6','#FFC8DD','#9D4EDD','#251322'], ['#FAD2E1','#C5D86D','#FDF0D5','#D90368','#1A0F14'] ],
+                settings: [ {loc:'Hidden café beneath blooming trees', time:'Late Spring', atm:'Soft and fragrant', env:'Clinking teacups, rustling leaves'}, {loc:'Victorian greenhouse', time:'Dusk', atm:'Warm and lush', env:'Rain tapping on glass'} ],
+                weathers: [ {icon:'🌧️', temp:'20°C', cond:'Soft Rain', wind:'5 km/h', feel:'Cozy & intimate'}, {icon:'🌸', temp:'22°C', cond:'Spring Breeze', wind:'10 km/h', feel:'Light & floral'} ],
+                outfits: [ {top:'Soft knit cardigan', bot:'Tailored trousers', sho:'Delicate flats', sty:'Elegant comfort'}, {top:'Crisp white linen shirt', bot:'Beige slacks', sho:'Suede loafers', sty:'Classic romance'} ],
+                atmospheres: [ {cam:'Slow tracking focus', lig:'Soft diffused sunlight', snd:'Acoustic guitar', scent:'Crushed rose petals and rain'}, {cam:'Static close-up', lig:'Warm candlelight', snd:'Violin strings', scent:'Sandalwood and fresh coffee'} ],
+                music: [ {tmp:'Slow (25% Energy)', ins:'Piano, string quartet', lis:'Reading poetry'}, {tmp:'Swaying (40% Energy)', ins:'Acoustic pop, soft vocals', lis:'Cooking dinner together'} ],
+                tracks: ['Stolen Glances', 'Letters Unsent', 'Spring Rain'],
+                characters: [
+                    { name:'Avery Rose', role:'The Writer', age:24, app:'Soft wavy hair, round glasses, ink on fingers.', trait:'Writes letters to strangers.', sec:'Is deeply lonely.', gf:'Goal: Find true love. Fear: Being unread.', tags:['Hopeless','Creative','Sweet'], quote:'Words are just hugs on paper.', back:'Avery leaves handwritten love letters in library books for strangers to find. She\'s waiting for someone to write back.', ava:{hair:5, skin:'#FCE3D7', hcol:'#996147', clo:'#FF8FAB', acc:'glasses'} },
+                    { name:'Julian Heart', role:'The Florist', age:26, app:'Apron over a button-up, smells like earth and jasmine.', trait:'Matches a soul to a flower.', sec:'Is allergic to roses.', gf:'Goal: Grow the perfect bloom. Fear: Wilting.', tags:['Gentle','Patient','Observant'], quote:'Everyone blooms in their own time.', back:'Julian runs a midnight flower shop. He claims he can cure any heartache with the right bouquet.', ava:{hair:4, skin:'#C79A7F', hcol:'#382417', clo:'#9D4EDD'} },
+                    { name:'Celine Faire', role:'The Musician', age:23, app:'Elegant dresses, calloused fingertips, sad smile.', trait:'Plays the piano only when it rains.', sec:'Lost her hearing in one ear.', gf:'Goal: Write a masterpiece. Fear: Silence.', tags:['Passionate','Melancholic','Graceful'], quote:'The weather is my favorite duet partner.', back:'Celine plays the grand piano in the lobby of an old hotel. Guests say her music makes you fall in love.', ava:{hair:2, skin:'#FDF1E6', hcol:'#2B1612', clo:'#D90368'} }
+                ],
+                stories: [
+                    "You pull an old book from the shelf and a pressed rose falls out. The handwritten notes in the margins directly answer the question you asked out loud yesterday.",
+                    "Running out of the rain, you duck under a café awning. The person standing next to you offers half their umbrella, and their perfume smells exactly like your favorite song.",
+                    "You accidentally swap coffee orders with a stranger. When you take a sip, it's the exact bizarre flavor combination you've secretly loved since childhood."
+                ]
+            },
+            chaotic: {
+                id: 'chaotic', name: 'Chaotic', icon: '⚡', desc: 'Fast energy, unpredictable moods and loud noise.',
+                colors: { primary: '#FF3CAC', secondary: '#784BA0', glow: '#2B86C5', bg: '#0A0612', bg1: '#361545', bg2: '#0D2136', bg3: '#4A1C66' },
+                palettes: [ ['#FF3CAC','#784BA0','#2B86C5','#FFCC70','#110D1A'], ['#39FF14','#FF00FF','#000000','#FFFFFF','#FFFF00'] ],
+                settings: [ {loc:'Underground punk show in a subway', time:'11:59 PM', atm:'Sweaty and electric', env:'Screaming guitars, strobes'}, {loc:'Neon arcade with alarms blaring', time:'2:13 AM', atm:'Overwhelming', env:'Sirens, explosions'} ],
+                weathers: [ {icon:'⛈️', temp:'27°C', cond:'Thunderstorm', wind:'40 km/h', feel:'Erratic & heavy'}, {icon:'🌪️', temp:'24°C', cond:'Gale Force', wind:'60 km/h', feel:'Violent & loud'} ],
+                outfits: [ {top:'Layered patched jacket', bot:'Baggy cargos', sho:'Chunky boots', sty:'Grunge maximalism'}, {top:'Neon fishnet top', bot:'Ripped denim', sho:'Platform sneakers', sty:'Cyber punk riot'} ],
+                atmospheres: [ {cam:'Shaky handheld zoom', lig:'Strobe lights, red flares', snd:'Distortion, heavy drums', scent:'Burnt matches and stale beer'}, {cam:'Fast erratic cuts', lig:'Flickering neon', snd:'Alarms, breaking glass', scent:'Energy drinks and ozone'} ],
+                music: [ {tmp:'Frantic (95% Energy)', ins:'Distorted guitars, blast beats', lis:'In a mosh pit'}, {tmp:'Erratic (80% Energy)', ins:'Glitch synths, heavy bass', lis:'Running from the cops'} ],
+                tracks: ['Do Not Shuffle', 'Overclocked', 'Riot Control'],
+                characters: [
+                    { name:'Jax Nova', role:'The Disaster', age:21, app:'Dyed split hair, bruised knuckles, mismatched shoes.', trait:'Turns every night into a story.', sec:'Is actually a genius.', gf:'Goal: Burn it down. Fear: Boredom.', tags:['Reckless','Loud','Loyal'], quote:'Plans are for people with boring lives.', back:'Jax accidentally started a riot at a concert by unplugging the main amp. He became a legend overnight.', ava:{hair:1, skin:'#E3CBB8', hcol:'#FF3CAC', clo:'#2B86C5'} },
+                    { name:'Roxy Riot', role:'The Catalyst', age:19, app:'Heavy eyeliner, spiked collar, carrying a smashed guitar.', trait:'Opened a portal with a power chord.', sec:'Can\'t play other chords.', gf:'Goal: The loudest show on earth. Fear: Silence.', tags:['Fierce','Electric','Stubborn'], quote:'Turn it up until the windows break.', back:'Roxy got banned from every venue in the city, so now she plays impromptu shows on top of moving trains.', ava:{hair:3, skin:'#EBEBEB', hcol:'#1A1A1A', clo:'#FF00FF'} },
+                    { name:'Vex Glitch', role:'The Anomaly', age:20, app:'Neon green hair, VR goggles, glitching tattoos.', trait:'Electronics short out when near.', sec:'Is half AI.', gf:'Goal: Crash the system. Fear: A hard reset.', tags:['Digital','Hyper','Detached'], quote:'Reality is just a badly coded simulation.', back:'Vex doesn\'t sleep; they plug into the city grid and absorb raw data until their brain overclocks.', ava:{hair:1, skin:'#D2C8E0', hcol:'#39FF14', clo:'#784BA0', acc:'glasses'} }
+                ],
+                stories: [
+                    "The bass drops so incredibly hard that gravity reverses for exactly ten seconds. Nobody panics; everyone just keeps moshing on the ceiling.",
+                    "You press the wrong button on the arcade machine. Suddenly, the neon lights shatter and you are pulled directly into the 16-bit fighting game.",
+                    "Someone hands you a microphone, shoves you onto a makeshift stage, and the entire crowd screams your name—even though you've never been in a band."
+                ]
+            }
+        };
+
+        /* --- STATE --- */
+        let currentVibe = 'dreamy';
+        let aestheticData = null; 
+        let favs = [];
+        let effectIntervals = []; 
+
+        /* --- DOM ELEMENTS --- */
+        const vibeContainer = document.getElementById('vibe-container');
+        const searchInput = document.getElementById('vibe-search');
+        const loader = document.getElementById('loader');
+        const resultsSec = document.getElementById('results');
+        const toast = document.getElementById('toast');
+        const mobileDrawer = document.getElementById('mobile-drawer');
+        const favDrawer = document.getElementById('fav-drawer');
+        const favList = document.getElementById('fav-list');
+        const actionBar = document.getElementById('action-bar');
+        
+        // FX Layers
+        const fxBg = document.getElementById('fx-background');
+        const fxFg = document.getElementById('fx-foreground');
+        const thunderOverlay = document.getElementById('thunder-overlay');
+
+        /* --- INIT --- */
+        function init() {
+            loadFavorites();
+            renderVibes();
+            selectVibe('dreamy', false); 
+            
+            searchInput.addEventListener('input', (e) => renderVibes(e.target.value));
+            
+            if (window.matchMedia("(min-width: 768px)").matches) {
+                document.querySelectorAll('.card').forEach(card => {
+                    card.addEventListener('mousemove', handleTilt);
+                    card.addEventListener('mouseleave', resetTilt);
+                });
+            }
+        }
+
+        /* --- 3D TILT EFFECT --- */
+        function handleTilt(e) {
+            const card = e.currentTarget;
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const rotateX = ((y - centerY) / centerY) * -4;
+            const rotateY = ((x - centerX) / centerX) * 4;
+            card.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-5px)`;
+        }
+        function resetTilt(e) {
+            e.currentTarget.style.transform = `rotateX(0deg) rotateY(0deg) translateY(0px)`;
+        }
+
+        /* --- DYNAMIC 3D EFFECTS ENGINE --- */
+        function clearEffects() {
+            fxBg.innerHTML = '';
+            fxFg.innerHTML = '';
+            thunderOverlay.classList.remove('thunder-active');
+            effectIntervals.forEach(clearInterval);
+            effectIntervals = [];
+            document.body.classList.remove('shake');
+        }
+
+        function applyEffects(vibeId) {
+            clearEffects();
+            
+            if (vibeId === 'dreamy') {
+                for(let i=0; i<6; i++) {
+                    const c = document.createElement('div');
+                    c.className = 'cloud-3d';
+                    c.style.width = randomInt(200, 500) + 'px';
+                    c.style.height = randomInt(100, 200) + 'px';
+                    c.style.top = randomInt(-10, 80) + 'vh';
+                    c.style.animationDuration = randomInt(40, 80) + 's';
+                    c.style.animationDelay = '-' + randomInt(0, 40) + 's';
+                    fxBg.appendChild(c);
+                }
+                for(let i=0; i<2; i++) {
+                    const c = document.createElement('div');
+                    c.className = 'cloud-3d cloud-fore';
+                    c.style.width = randomInt(400, 800) + 'px';
+                    c.style.height = randomInt(300, 600) + 'px';
+                    c.style.top = randomInt(10, 60) + 'vh';
+                    c.style.animationDuration = randomInt(30, 50) + 's';
+                    c.style.animationDelay = '-' + randomInt(0, 30) + 's';
+                    fxFg.appendChild(c);
+                }
+            } 
+            else if (vibeId === 'mysterious') {
+                for(let i=0; i<80; i++) {
+                    const r = document.createElement('div');
+                    r.className = 'rain-drop';
+                    r.style.left = randomInt(0, 100) + 'vw';
+                    r.style.animationDuration = (Math.random() * 0.5 + 0.5) + 's';
+                    r.style.animationDelay = (Math.random() * 2) + 's';
+                    fxBg.appendChild(r);
+                }
+                const fog = document.createElement('div');
+                fog.className = 'fog-bank';
+                fxBg.appendChild(fog);
+            }
+            else if (vibeId === 'chaotic') {
+                effectIntervals.push(setInterval(() => {
+                    if(Math.random() > 0.6) {
+                        thunderOverlay.classList.remove('thunder-active');
+                        void thunderOverlay.offsetWidth;
+                        thunderOverlay.classList.add('thunder-active');
+                        document.body.classList.add('shake');
+                        setTimeout(() => document.body.classList.remove('shake'), 400);
+                    }
+                }, randomInt(3000, 7000)));
+            }
+            else if (vibeId === 'romantic') {
+                for(let i=0; i<30; i++) {
+                    const p = document.createElement('div');
+                    p.className = 'petal';
+                    p.style.left = randomInt(-10, 100) + 'vw';
+                    p.style.animationDuration = randomInt(10, 20) + 's, ' + randomInt(3, 6) + 's';
+                    p.style.animationDelay = '-' + randomInt(0, 20) + 's, -' + randomInt(0, 5) + 's';
+                    p.style.transform = `scale(${Math.random() * 1.5 + 0.5})`;
+                    fxFg.appendChild(p);
+                }
+            }
+            else if (vibeId === 'summer') {
+                const sun = document.createElement('div');
+                sun.className = 'sun-ray';
+                fxBg.appendChild(sun);
+            }
+            else if (vibeId === 'lateNight') {
+                for(let i=0; i<20; i++) {
+                    const s = document.createElement('div');
+                    s.className = 'light-streak';
+                    s.style.top = randomInt(10, 90) + 'vh';
+                    s.style.width = randomInt(50, 200) + 'px';
+                    s.style.background = Math.random() > 0.5 ? 'rgba(255,50,50,0.8)' : 'rgba(255,255,255,0.8)';
+                    s.style.animationDuration = (Math.random() * 1 + 0.5) + 's';
+                    s.style.animationDelay = (Math.random() * 5) + 's';
+                    fxBg.appendChild(s);
+                }
+            }
+            else if (vibeId === 'nostalgic') {
+                for(let i=0; i<50; i++) {
+                    const d = document.createElement('div');
+                    d.className = 'dust-mote';
+                    d.style.left = randomInt(0, 100) + 'vw';
+                    d.style.animationDuration = randomInt(10, 30) + 's';
+                    d.style.animationDelay = '-' + randomInt(0, 30) + 's';
+                    fxBg.appendChild(d);
+                }
+            }
+        }
+
+        /* --- VIBE RENDER & SELECT --- */
+        function renderVibes(filter = '') {
+            vibeContainer.innerHTML = '';
+            const query = filter.toLowerCase();
+            let count = 0;
+
+            Object.values(VIBES).forEach(vibe => {
+                if(vibe.name.toLowerCase().includes(query) || vibe.desc.toLowerCase().includes(query)) {
+                    count++;
+                    const card = document.createElement('div');
+                    card.className = `vibe-card glass-panel ${currentVibe === vibe.id ? 'selected' : ''}`;
+                    card.style.setProperty('--card-color', vibe.colors.primary);
+                    card.onclick = () => selectVibe(vibe.id);
+                    
+                    card.innerHTML = `
+                        <span class="vibe-icon">${vibe.icon}</span>
+                        <div class="vibe-title brand-font">${vibe.name}</div>
+                        <div class="vibe-desc">${vibe.desc}</div>
+                    `;
+                    vibeContainer.appendChild(card);
+                }
+            });
+
+            document.getElementById('no-results').style.display = count === 0 ? 'block' : 'none';
+        }
+
+        function selectVibe(id, triggerRender = true) {
+            currentVibe = id;
+            const v = VIBES[id];
+            
+            const root = document.documentElement;
+            root.style.setProperty('--primary', v.colors.primary);
+            root.style.setProperty('--secondary', v.colors.secondary);
+            root.style.setProperty('--glow', v.colors.glow);
+            root.style.setProperty('--bg-base', v.colors.bg);
+            root.style.setProperty('--bg-1', v.colors.bg1);
+            root.style.setProperty('--bg-2', v.colors.bg2);
+            root.style.setProperty('--bg-3', v.colors.bg3);
+            
+            if(triggerRender) renderVibes(searchInput.value);
+            if(aestheticData) { applyEffects(id); }
+        }
+
+        /* --- GENERATORS --- */
+        function getRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+        function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+        function randomizeEverything() {
+            const keys = Object.keys(VIBES);
+            selectVibe(getRandom(keys));
+            generateAesthetic(true);
+        }
+
+        function generateAesthetic(isRandom = false, isRegen = false) {
+            const v = VIBES[currentVibe];
+            
+            loader.classList.add('active');
+            resultsSec.style.display = 'none';
+            actionBar.classList.remove('visible');
+            clearEffects(); 
+            scrollToEl('loader');
+
+            setTimeout(() => {
+                aestheticData = {
+                    vibe: v,
+                    varNum: randomInt(1, 99).toString().padStart(2, '0'),
+                    palette: getRandom(v.palettes),
+                    setting: getRandom(v.settings),
+                    weather: getRandom(v.weathers),
+                    outfit: getRandom(v.outfits),
+                    atmosphere: getRandom(v.atmospheres),
+                    music: getRandom(v.music),
+                    story: getRandom(v.stories),
+                    character: getRandom(v.characters),
+                    dna: {
+                        calm: randomInt(10, 90), eng: randomInt(10, 90),
+                        mys: randomInt(10, 90), wrm: randomInt(10, 90),
+                        nos: randomInt(10, 90), rom: randomInt(10, 90), cha: randomInt(10, 90)
+                    }
+                };
+
+                if(v.id === 'chaotic') { aestheticData.dna.cha = randomInt(80,100); aestheticData.dna.calm = randomInt(0,20); }
+                if(v.id === 'dreamy') { aestheticData.dna.calm = randomInt(80,100); aestheticData.dna.eng = randomInt(0,30); }
+                if(v.id === 'mysterious') aestheticData.dna.mys = randomInt(80,100);
+                if(v.id === 'summer') aestheticData.dna.wrm = randomInt(80,100);
+                
+                renderResults();
+                
+                loader.classList.remove('active');
+                resultsSec.style.display = 'block';
+                applyEffects(v.id);
+                
+                setTimeout(() => {
+                    scrollToEl('results');
+                    actionBar.classList.add('visible');
+                    animateBars();
+                }, 100);
+                
+            }, 1200); 
+        }
+
+        function generateNewCharacter() {
+            const charCont = document.getElementById('char-container');
+            charCont.style.filter = 'blur(10px)';
+            charCont.style.opacity = '0.5';
+            charCont.style.transform = 'scale(0.98)';
+            
+            setTimeout(() => {
+                aestheticData.character = getRandom(VIBES[currentVibe].characters);
+                populateCharacter();
+                
+                setTimeout(() => {
+                    document.querySelectorAll('#rc-bars .bar-fill').forEach(bar => {
+                        const val = bar.getAttribute('data-val');
+                        bar.style.width = '0%';
+                        setTimeout(() => { bar.style.width = val + '%'; }, 50);
+                    });
+                }, 100);
+
+                charCont.style.filter = 'blur(0)';
+                charCont.style.opacity = '1';
+                charCont.style.transform = 'scale(1)';
+                showToast('New character discovered ✨');
+            }, 400);
+        }
+
+        /* --- 2D SVG AVATAR GENERATOR --- */
+        function generateSVGAvatar(ava) {
+            const svgOpen = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">`;
+            const svgClose = `</svg>`;
+            const bg = `<circle cx="100" cy="100" r="100" fill="${ava.clo}" opacity="0.15"/>`;
+            const body = `<path d="M 30,200 C 30,150 60,140 100,140 C 140,140 170,150 170,200 Z" fill="${ava.clo}"/>`;
+            const neck = `<rect x="85" y="130" width="30" height="40" fill="${ava.skin}" style="filter:brightness(0.9)"/>`;
+            const head = `<path d="M 65,110 C 65,65 135,65 135,110 C 135,155 105,165 100,165 C 95,165 65,155 65,110 Z" fill="${ava.skin}"/>`;
+            
+            let hair = '';
+            if(ava.hair === 1) { 
+                hair = `<path d="M 60,110 C 50,70 90,40 140,90 C 150,110 130,50 100,45 C 70,40 50,80 60,110 Z" fill="${ava.hcol}"/><path d="M 60,70 C 80,50 120,50 140,70 C 130,90 100,110 60,70 Z" fill="${ava.hcol}" opacity="0.8"/>`;
+            } else if(ava.hair === 2) { 
+                hair = `<path d="M 60,110 C 60,60 140,60 140,110 L 145,200 C 120,200 130,140 135,110 C 135,70 65,70 65,110 L 55,200 C 80,200 70,140 60,110 Z" fill="${ava.hcol}"/><path d="M 65,100 C 80,70 120,70 135,100 C 120,90 80,90 65,100 Z" fill="${ava.hcol}" opacity="0.9"/>`;
+            } else if(ava.hair === 3) { 
+                hair = `<circle cx="70" cy="90" r="30" fill="${ava.hcol}"/><circle cx="100" cy="70" r="35" fill="${ava.hcol}"/><circle cx="130" cy="90" r="30" fill="${ava.hcol}"/><circle cx="65" cy="120" r="25" fill="${ava.hcol}"/><circle cx="135" cy="120" r="25" fill="${ava.hcol}"/>`;
+            } else if(ava.hair === 4) { 
+                hair = `<path d="M 65,110 C 60,70 140,70 135,110 C 130,90 70,90 65,110 Z" fill="${ava.hcol}"/><circle cx="100" cy="50" r="25" fill="${ava.hcol}"/>`;
+            } else if(ava.hair === 5) { 
+                hair = `<path d="M 55,140 C 45,70 100,40 145,140 C 150,90 120,50 100,50 C 80,50 50,90 55,140 Z" fill="${ava.hcol}"/><path d="M 65,100 C 80,70 120,70 135,100 C 120,90 80,90 65,100 Z" fill="${ava.hcol}" opacity="0.9"/>`;
+            }
+
+            let accessory = '';
+            if(ava.acc === 'glasses') {
+                accessory = `<circle cx="85" cy="115" r="12" fill="none" stroke="${ava.hcol}" stroke-width="3"/><circle cx="115" cy="115" r="12" fill="none" stroke="${ava.hcol}" stroke-width="3"/><line x1="97" y1="115" x2="103" y2="115" stroke="${ava.hcol}" stroke-width="3"/>`;
+            } else if(ava.acc === 'beanie') {
+                accessory = `<path d="M 55,90 C 55,30 145,30 145,90 C 145,100 55,100 55,90 Z" fill="${ava.clo}"/>`;
+            }
+
+            return svgOpen + bg + body + neck + head + hair + accessory + svgClose;
+        }
+
+        /* --- RENDERERS --- */
+        function renderResults() {
+            const d = aestheticData;
+            
+            document.getElementById('r-sub').innerHTML = `${d.vibe.icon} YOUR AESTHETIC WORLD`;
+            document.getElementById('r-title').innerText = d.vibe.name;
+            document.getElementById('r-desc').innerText = `"${d.vibe.desc}"`;
+            document.getElementById('r-meta').innerText = `Variation #${d.varNum} • Generated Just Now`;
+
+            const palEl = document.getElementById('r-palette');
+            palEl.innerHTML = '';
+            d.palette.forEach(hex => {
+                const s = document.createElement('div');
+                s.className = 'swatch';
+                s.style.backgroundColor = hex;
+                s.innerHTML = `<span class="swatch-hex">${hex}</span>`;
+                s.onclick = () => copyColor(hex);
+                palEl.appendChild(s);
+            });
+
+            document.getElementById('rs-loc').innerText = d.setting.loc;
+            document.getElementById('rs-time').innerText = d.setting.time;
+            document.getElementById('rs-atm').innerText = d.setting.atm;
+            document.getElementById('rs-env').innerText = d.setting.env;
+
+            document.getElementById('rw-temp').innerText = d.weather.temp;
+            document.getElementById('rw-cond').innerHTML = `${d.weather.icon} ${d.weather.cond}`;
+            document.getElementById('rw-wind').innerText = d.weather.wind;
+            document.getElementById('rw-feel').innerText = d.weather.feel;
+
+            document.getElementById('ro-top').innerText = d.outfit.top;
+            document.getElementById('ro-bot').innerText = d.outfit.bot;
+            document.getElementById('ro-sho').innerText = d.outfit.sho;
+            document.getElementById('ro-sty').innerText = d.outfit.sty;
+
+            document.getElementById('ra-cam').innerText = d.atmosphere.cam;
+            document.getElementById('ra-lig').innerText = d.atmosphere.lig;
+            document.getElementById('ra-snd').innerText = d.atmosphere.snd;
+            document.getElementById('ra-scent').innerText = `Smells like: ${d.atmosphere.scent}`;
+
+            document.getElementById('r-story').innerText = d.story;
+
+            document.getElementById('rm-tmp').innerText = d.music.tmp;
+            document.getElementById('rm-ins').innerText = d.music.ins;
+            document.getElementById('rm-lis').innerText = d.music.lis;
+
+            const tracksEl = document.getElementById('r-tracks');
+            tracksEl.innerHTML = '';
+            d.vibe.tracks.forEach(t => {
+                tracksEl.innerHTML += `<div class="track-item"><span class="track-icon">🎵</span> ${t}</div>`;
+            });
+
+            populateCharacter();
+            renderDNA();
+            
+            const saveBtn = document.getElementById('btn-save');
+            saveBtn.innerHTML = '♡ Save';
+            saveBtn.classList.remove('active');
+
+            if (window.matchMedia("(min-width: 768px)").matches) {
+                document.querySelectorAll('.card').forEach(card => {
+                    card.removeEventListener('mousemove', handleTilt);
+                    card.removeEventListener('mouseleave', resetTilt);
+                    card.addEventListener('mousemove', handleTilt);
+                    card.addEventListener('mouseleave', resetTilt);
+                });
+            }
+        }
+
+        function populateCharacter() {
+            const c = aestheticData.character;
+            
+            const avatarSvg = generateSVGAvatar(c.ava);
+            document.getElementById('r-avatar').innerHTML = avatarSvg;
+
+            document.getElementById('rc-name').innerText = c.name;
+            document.getElementById('rc-role').innerText = `${c.role} • ${c.age}`;
+            document.getElementById('rc-quote').innerText = `"${c.quote}"`;
+            document.getElementById('rc-app').innerText = c.app;
+            document.getElementById('rc-trait').innerText = c.trait;
+            document.getElementById('rc-sec').innerText = c.sec;
+            document.getElementById('rc-gf').innerText = `${c.gf}`;
+            document.getElementById('rc-back').innerText = c.back;
+
+            const tagsEl = document.getElementById('rc-tags');
+            tagsEl.innerHTML = '';
+            c.tags.forEach(t => {
+                const span = document.createElement('span');
+                span.className = 'char-tag';
+                span.innerText = t;
+                tagsEl.appendChild(span);
+            });
+
+            const bars = [
+                {l:'Confidence', v:randomInt(40,100)},
+                {l:'Mystery', v:randomInt(40,100)},
+                {l:'Chaos', v:randomInt(10,100)}
+            ];
+            const barsEl = document.getElementById('rc-bars');
+            barsEl.innerHTML = '';
+            bars.forEach(b => {
+                barsEl.innerHTML += `
+                    <div class="bar-container">
+                        <div class="bar-label">${b.l}</div>
+                        <div class="bar-track"><div class="bar-fill" data-val="${b.v}" style="width:0%;"></div></div>
+                        <div class="bar-val">${b.v}%</div>
+                    </div>
+                `;
+            });
+        }
+
+        function renderDNA() {
+            const dna = aestheticData.dna;
+            const metrics = [
+                { l:'Calm', v:dna.calm }, { l:'Energy', v:dna.eng },
+                { l:'Mystery', v:dna.mys }, { l:'Warmth', v:dna.wrm },
+                { l:'Nostalgia', v:dna.nos }, { l:'Romance', v:dna.rom },
+                { l:'Chaos', v:dna.cha }
+            ];
+            
+            const el = document.getElementById('r-dna');
+            el.innerHTML = '';
+            metrics.forEach(m => {
+                el.innerHTML += `
+                    <div class="bar-container">
+                        <div class="bar-label">${m.l}</div>
+                        <div class="bar-track"><div class="bar-fill" data-val="${m.v}" style="width:0%;"></div></div>
+                        <div class="bar-val">${m.v}%</div>
+                    </div>
+                `;
+            });
+        }
+
+        function animateBars() {
+            setTimeout(() => {
+                document.querySelectorAll('.bar-fill').forEach(bar => {
+                    bar.style.width = bar.getAttribute('data-val') + '%';
+                });
+            }, 100);
+        }
+
+        /* --- ACTIONS & UTILS --- */
+        function copyColor(hex) {
+            navigator.clipboard.writeText(hex).then(() => {
+                showToast(`Copied ${hex} ✨`);
+            }).catch(() => showToast('Failed to copy.'));
+        }
+
+        function showToast(msg) {
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function scrollToEl(id) {
+            const el = document.getElementById(id);
+            if(el) {
+                const offset = el.getBoundingClientRect().top + window.scrollY - 80;
+                window.scrollTo({top: offset, behavior: 'smooth'});
+            }
+        }
+
+        function toggleMobileMenu() { mobileDrawer.classList.toggle('open'); }
+        function toggleFavorites() { favDrawer.classList.toggle('open'); if(mobileDrawer.classList.contains('open')) mobileDrawer.classList.remove('open'); }
+
+        function shareAesthetic() {
+            if(!aestheticData) return;
+            const d = aestheticData;
+            const text = `${d.vibe.icon} My ${d.vibe.name} Aesthetic:\n\n🌍 ${d.setting.loc}\n☁️ ${d.weather.cond}\n🎭 ${d.character.name} - ${d.character.role}\n🎨 Colors: ${d.palette.join(', ')}\n\nGenerated at Song → Aesthetic.`;
+            
+            if (navigator.share) {
+                navigator.share({ title: `${d.vibe.name} Aesthetic`, text: text }).catch(()=>{});
+            } else {
+                navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard ✨'));
+            }
+        }
+
+        /* --- LOCAL STORAGE --- */
+        function loadFavorites() {
+            try {
+                const saved = localStorage.getItem('sa_favs_final');
+                if(saved) favs = JSON.parse(saved);
+                renderFavList();
+            } catch(e) { console.error('LocalStorage failed'); }
+        }
+
+        function saveFavorite() {
+            if(!aestheticData) return;
+            const d = aestheticData;
+            const id = d.vibe.id + d.varNum + Date.now();
+            const payload = {
+                id: id, vibe: d.vibe.name, icon: d.vibe.icon, date: new Date().toLocaleDateString(),
+                char: d.character.name, pal: d.palette, color: d.vibe.colors.primary
+            };
+            
+            favs.unshift(payload);
+            try {
+                localStorage.setItem('sa_favs_final', JSON.stringify(favs));
+                const saveBtn = document.getElementById('btn-save');
+                saveBtn.innerHTML = '♥ SAVED';
+                saveBtn.classList.add('active');
+                showToast('Aesthetic saved ✨');
+                renderFavList();
+            } catch(e) { showToast('Could not save.'); }
+        }
+
+        function renderFavList() {
+            favList.innerHTML = '';
+            if(favs.length === 0) {
+                favList.innerHTML = '<p style="color:var(--text-muted); text-align:center;">No saved aesthetics yet.</p>';
+                return;
+            }
+            
+            favs.forEach(f => {
+                const el = document.createElement('div');
+                el.className = 'glass-panel';
+                el.style.padding = '16px';
+                el.style.position = 'relative';
+                el.style.borderLeft = `4px solid ${f.color}`;
+                el.style.background = `linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.01) 100%)`;
+                
+                let palHtml = f.pal.map(c => `<div style="background:${c}; width:20px; height:20px; border-radius:4px;"></div>`).join('');
+                
+                el.innerHTML = `
+                    <button style="position:absolute; top:12px; right:12px; color:var(--text-muted); font-size:1.5rem;" onclick="deleteFavorite('${f.id}')">×</button>
+                    <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:4px;">${f.date}</div>
+                    <div class="brand-font" style="font-size:1.3rem; color:${f.color}; margin-bottom:4px;">${f.icon} ${f.vibe}</div>
+                    <div style="font-size:0.95rem; margin-bottom:12px;">🎭 ${f.char}</div>
+                    <div style="display:flex; gap:6px;">${palHtml}</div>
+                `;
+                favList.appendChild(el);
+            });
+        }
+
+        function deleteFavorite(id) {
+            favs = favs.filter(f => f.id !== id);
+            localStorage.setItem('sa_favs_final', JSON.stringify(favs));
+            renderFavList();
+        }
+
+        function clearFavorites() {
+            favs = [];
+            localStorage.setItem('sa_favs_final', JSON.stringify(favs));
+            renderFavList();
+            showToast('Favorites cleared');
+        }
+
+        /* --- EXPORT CARD (CANVAS) --- */
+        function exportCard() {
+            if(!aestheticData) return;
+            showToast('Generating card... ⏳');
+            const d = aestheticData;
+            const cvs = document.getElementById('export-canvas');
+            const ctx = cvs.getContext('2d');
+            
+            cvs.width = 1080;
+            cvs.height = 1080;
+            
+            ctx.fillStyle = d.vibe.colors.bg;
+            ctx.fillRect(0,0,1080,1080);
+            
+            const grad = ctx.createRadialGradient(540, 540, 0, 540, 540, 800);
+            grad.addColorStop(0, d.vibe.colors.primary + '33');
+            grad.addColorStop(1, 'transparent');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0,0,1080,1080);
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(40,40,1000,1000);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            
+            ctx.font = 'bold 80px "Space Grotesk", sans-serif';
+            ctx.fillText(`${d.vibe.icon} ${d.vibe.name.toUpperCase()}`, 540, 180);
+            
+            ctx.font = '30px Inter, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.fillText(`Song → Aesthetic • Variation #${d.varNum}`, 540, 240);
+            
+            const pW = 120, pH = 120, gap = 20;
+            const startX = 540 - ((5 * pW) + (4 * gap)) / 2;
+            d.palette.forEach((c, i) => {
+                ctx.fillStyle = c;
+                ctx.beginPath();
+                ctx.roundRect(startX + i*(pW+gap), 320, pW, pH, 20);
+                ctx.fill();
+            });
+
+            ctx.fillStyle = d.vibe.colors.primary;
+            ctx.font = 'bold 55px "Space Grotesk", sans-serif';
+            ctx.fillText(d.character.name, 540, 580);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '32px Inter, sans-serif';
+            ctx.fillText(`${d.character.role} • 🌍 ${d.setting.loc}`, 540, 640);
+            
+            ctx.font = 'italic 40px Inter, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            
+            const words = `"${d.character.quote}"`.split(' ');
+            let line = '', y = 780;
+            for(let n = 0; n < words.length; n++) {
+                const testLine = line + words[n] + ' ';
+                if (ctx.measureText(testLine).width > 800 && n > 0) {
+                    ctx.fillText(line.trim(), 540, y);
+                    line = words[n] + ' ';
+                    y += 55;
+                } else { line = testLine; }
+            }
+            ctx.fillText(line.trim(), 540, y);
+
+            ctx.font = '24px Inter, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.fillText('Generated at Song → Aesthetic', 540, 1020);
+
+            setTimeout(() => {
+                const link = document.createElement('a');
+                link.download = `${d.vibe.name}-Aesthetic.png`;
+                link.href = cvs.toDataURL('image/png');
+                link.click();
+                showToast('Card Downloaded ✨');
+            }, 600);
+        }
+
+        /* --- START --- */
+        window.onload = init;
+    </script>
+</body>
+</html>
